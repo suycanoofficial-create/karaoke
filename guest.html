@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest — KTV LOUNGE</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <header class="site-header" id="siteHeader">
+        <div class="container">
+            <div class="site-header-inner">
+                <a href="/" class="site-logo">KTV LOUNGE</a>
+                <nav class="site-nav" id="siteNav"></nav>
+            </div>
+        </div>
+    </header>
+
+    <main style="padding:var(--space-lg);max-width:800px;margin:0 auto">
+        <!-- Room Info -->
+        <div class="glass-card" style="padding:var(--space-md);text-align:center;margin-bottom:var(--space-lg)">
+            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;color:rgba(255,255,255,0.3)">Room</div>
+            <div id="roomCodeDisplay" style="font-size:2rem;font-weight:700;letter-spacing:0.2em;color:var(--gold)">------</div>
+            <div id="roomStatus" style="font-size:0.8rem;color:var(--success);margin-top:var(--space-sm)">● Connected</div>
+        </div>
+
+        <!-- Nickname -->
+        <div class="glass-card" style="padding:var(--space-md);margin-bottom:var(--space-lg)">
+            <div class="flex gap-sm" style="align-items:center">
+                <input type="text" id="nicknameInput" class="form-input" placeholder="Your nickname..." maxlength="30" style="flex:1">
+                <button class="btn btn-primary btn-sm" onclick="setNickname()">Set</button>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="glass-card" style="padding:var(--space-md);margin-bottom:var(--space-lg)">
+            <div class="flex gap-sm" style="margin-bottom:var(--space-md)">
+                <input type="text" id="searchInput" class="form-input" placeholder="Search songs..." onkeydown="if(event.key==='Enter') searchSongs()" style="flex:1">
+                <button class="btn btn-primary btn-sm" onclick="searchSongs()">Search</button>
+            </div>
+            <div id="searchResults" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+
+        <!-- Queue -->
+        <div class="glass-card" style="padding:var(--space-md)">
+            <div class="flex-between" style="margin-bottom:var(--space-sm)">
+                <h3 class="heading-sm">Queue</h3>
+                <span id="queueCount" class="text-muted text-small">0 songs</span>
+            </div>
+            <div id="queueList" style="min-height:100px">
+                <div class="text-muted text-center" style="padding:var(--space-xl)">No songs in queue</div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const ROOM_CODE = params.get('code');
+        let ROOM_ID = null;
+        let GUEST_ID = localStorage.getItem('ktv_guest_id') || 'guest_' + Math.random().toString(36).substr(2, 9);
+        let NICKNAME = localStorage.getItem('ktv_nickname') || '';
+        let pollInterval = null;
+
+        if (!ROOM_CODE) { window.location.href = '/'; }
+
+        localStorage.setItem('ktv_guest_id', GUEST_ID);
+
+        function showToast(msg, type) {
+            var c = document.getElementById('toastContainer');
+            if (!c) return;
+            var t = document.createElement('div');
+            t.className = 'toast toast-' + (type || 'info');
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 3000);
+        }
+
+        async function api(path, opts = {}) {
+            opts.headers = { ...opts.headers, 'Content-Type': 'application/json' };
+            const res = await fetch(path, opts);
+            return res.json();
+        }
+
+        async function init() {
+            const data = await api('/api/room_status?code=' + ROOM_CODE);
+            if (!data.success || !data.room) { showToast('Room not found', 'error'); return; }
+            ROOM_ID = data.room.id;
+            document.getElementById('roomCodeDisplay').textContent = ROOM_CODE;
+
+            if (NICKNAME) {
+                document.getElementById('nicknameInput').value = NICKNAME;
+                sendHeartbeat();
+            }
+
+            pollQueue();
+            pollInterval = setInterval(pollQueue, 3000);
+            setInterval(sendHeartbeat, 10000);
+        }
+
+        function setNickname() {
+            NICKNAME = document.getElementById('nicknameInput').value.trim() || 'Guest';
+            localStorage.setItem('ktv_nickname', NICKNAME);
+            sendHeartbeat();
+            showToast('Nickname set to ' + NICKNAME, 'success');
+        }
+
+        function sendHeartbeat() {
+            if (!ROOM_ID) return;
+            api('/api/guest_heartbeat', {
+                method: 'POST',
+                body: JSON.stringify({ room_code: ROOM_CODE, guest_id: GUEST_ID, nickname: NICKNAME })
+            });
+        }
+
+        async function searchSongs() {
+            const q = document.getElementById('searchInput').value.trim();
+            if (!q) { showToast('Enter a search term', 'error'); return; }
+            const data = await api('/api/search_songs?q=' + encodeURIComponent(q));
+            if (!data.success) return;
+            const container = document.getElementById('searchResults');
+            container.innerHTML = data.songs.map(s => `
+                <div style="display:flex;align-items:center;gap:var(--space-sm);padding:var(--space-sm);border-radius:var(--radius-md);margin-bottom:var(--space-xs);background:rgba(255,255,255,0.03);cursor:pointer" onclick="addToQueue('${s.videoId}', '${s.title.replace(/'/g, "\\'")}')">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" style="font-size:0.7rem;padding:2px 8px">+ Add</button>
+                </div>
+            `).join('');
+        }
+
+        async function addToQueue(videoId, title) {
+            const data = await api('/api/add_to_queue', {
+                method: 'POST',
+                body: JSON.stringify({ room_code: ROOM_CODE, youtube_id: videoId, video_title: title, added_by: NICKNAME || GUEST_ID })
+            });
+            if (data.success) { showToast('Song added to queue!', 'success'); pollQueue(); }
+            else { showToast(data.error || 'Failed to add song', 'error'); }
+        }
+
+        function pollQueue() {
+            if (!ROOM_ID) return;
+            api('/api/get_queue?room_id=' + ROOM_ID).then(data => {
+                if (!data.success) return;
+                renderQueue(data.tracks);
+                document.getElementById('queueCount').textContent = data.count + ' song' + (data.count !== 1 ? 's' : '');
+            });
+        }
+
+        function renderQueue(tracks) {
+            const container = document.getElementById('queueList');
+            const active = tracks.filter(t => t.status !== 'completed' && t.status !== 'skipped');
+            if (active.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center" style="padding:var(--space-xl)">No songs in queue</div>';
+                return;
+            }
+            container.innerHTML = active.map(t => {
+                const isPlaying = t.status === 'playing';
+                const isMine = t.added_by === NICKNAME || t.added_by === GUEST_ID;
+                const elapsed = isPlaying && t.elapsed ? formatTime(t.elapsed) : '';
+                return `<div style="display:flex;align-items:center;gap:var(--space-sm);padding:var(--space-sm);border-radius:var(--radius-md);margin-bottom:var(--space-xs);background:${isPlaying ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)'}">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.video_title}</div>
+                        <div class="text-muted text-small">${t.added_by}${elapsed ? ' · ' + elapsed : ''}${t.score ? ' · ★' + t.score : ''}</div>
+                    </div>
+                    ${isPlaying ? '<span style="color:var(--gold);font-size:0.7rem">▶</span>' : (isMine ? '<button class="btn btn-danger btn-sm" style="font-size:0.7rem;padding:2px 6px" onclick="removeSong(' + t.id + ')">✕</button>' : '')}
+                </div>`;
+            }).join('');
+        }
+
+        async function removeSong(id) {
+            const data = await api('/api/remove_from_queue', {
+                method: 'POST',
+                body: JSON.stringify({ track_id: id, guest_id: GUEST_ID, room_code: ROOM_CODE })
+            });
+            if (data.success) pollQueue();
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        init();
+    </script>
+</body>
+</html>

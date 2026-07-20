@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Admin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <main class="admin-content">
+            <div class="admin-page-header">
+                <h1 class="heading-lg">Settings</h1>
+                <p class="text-muted mt-1">Configure your lounge platform</p>
+            </div>
+            <div id="successMsg" style="display:none;padding:var(--space-md);background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);border-radius:var(--radius-md);margin-bottom:var(--space-lg);color:var(--success)"></div>
+            <div id="errorMsg" style="display:none;padding:var(--space-md);background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:var(--radius-md);margin-bottom:var(--space-lg);color:var(--danger)"></div>
+            <form id="settingsForm">
+                <div class="glass-card" style="padding:var(--space-md)">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md)">
+                        <div class="form-group"><label class="form-label">Site Name</label><input type="text" name="site_name" class="form-input" id="site_name"></div>
+                        <div class="form-group"><label class="form-label">Tagline</label><input type="text" name="site_tagline" class="form-input" id="site_tagline"></div>
+                        <div class="form-group"><label class="form-label">YouTube API Key</label><input type="text" name="youtube_api_key" class="form-input" id="youtube_api_key" placeholder="AIza..."></div>
+                        <div class="form-group"><label class="form-label">Max Queue / Room</label><input type="number" name="max_queue_per_room" class="form-input" id="max_queue_per_room" min="0"></div>
+                        <div class="form-group"><label class="form-label">Primary Color</label><input type="color" name="brand_primary" class="form-input" id="brand_primary" style="height:40px;padding:2px"></div>
+                        <div class="form-group"><label class="form-label">Accent Color</label><input type="color" name="brand_accent" class="form-input" id="brand_accent" style="height:40px;padding:2px"></div>
+                    </div>
+                    <div class="form-group" style="margin-top:var(--space-md)">
+                        <label class="flex gap-sm" style="align-items:center;cursor:pointer">
+                            <input type="checkbox" name="show_now_playing" value="1" id="show_now_playing" style="width:16px;height:16px;accent-color:var(--gold)">
+                            <span>Show "Now Playing" to guests</span>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:var(--space-lg)">Save Settings</button>
+            </form>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="../assets/js/admin.js"></script>
+    <script>
+        async function loadSettings() {
+            const data = await api('/api/admin_settings');
+            if (!data.success || !data.settings) return;
+            const s = data.settings;
+            ['site_name', 'site_tagline', 'youtube_api_key', 'max_queue_per_room', 'brand_primary', 'brand_accent'].forEach(k => {
+                const el = document.getElementById(k);
+                if (el) el.value = s[k] || '';
+            });
+            document.getElementById('show_now_playing').checked = s.show_now_playing === '1';
+        }
+
+        document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true; btn.textContent = 'Saving...';
+            const formData = new FormData(this);
+            const data = {};
+            formData.forEach((v, k) => { data[k] = v; });
+            data.show_now_playing = document.getElementById('show_now_playing').checked ? '1' : '0';
+            const result = await api('/api/admin_settings', { method: 'POST', body: data });
+            if (result.success) { document.getElementById('successMsg').style.display = 'block'; document.getElementById('successMsg').textContent = 'Settings updated'; }
+            else { document.getElementById('errorMsg').style.display = 'block'; document.getElementById('errorMsg').textContent = result.error || 'Failed'; }
+            btn.disabled = false; btn.textContent = 'Save Settings';
+        });
+
+        renderSidebar();
+        loadSettings();
+    </script>
+</body>
+</html>

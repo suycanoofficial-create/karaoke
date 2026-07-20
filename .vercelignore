@@ -1,0 +1,6 @@
+# PHP source files (not used in Vercel deployment)
+api-php/
+config/
+sql/
+*.php
+*.sql

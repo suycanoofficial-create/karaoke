@@ -1,0 +1,25 @@
+# Environment files
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# PHP files (original source - not used in Vercel deployment)
+*.php
+config/
+sql/
+api-php/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

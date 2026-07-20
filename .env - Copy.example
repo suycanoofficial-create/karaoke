@@ -1,0 +1,15 @@
+# Turso Database
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your-turso-token
+
+# YouTube API Key (optional - uses fallback if empty)
+YOUTUBE_API_KEY=
+
+# Site Configuration
+SITE_NAME=KTV LOUNGE
+SITE_TAGLINE=Elevate Your Night
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+
+# Timezone
+TIMEZONE=Asia/Manila

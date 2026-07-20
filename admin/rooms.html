@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rooms — Admin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+    <script src="../assets/js/app.js" defer></script>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <main class="admin-content">
+            <div class="admin-page-header flex-between">
+                <div><h1 class="heading-lg">Rooms</h1></div>
+                <div class="flex gap-xs" style="flex-wrap:wrap" id="filterBtns">
+                    <button class="btn btn-primary btn-sm" data-filter="all" style="font-size:0.7rem;padding:4px 10px">All</button>
+                    <button class="btn btn-ghost btn-sm" data-filter="active" style="font-size:0.7rem;padding:4px 10px">Active</button>
+                    <button class="btn btn-ghost btn-sm" data-filter="closed" style="font-size:0.7rem;padding:4px 10px">Closed</button>
+                </div>
+            </div>
+            <div class="glass-card" style="padding:0;overflow:hidden">
+                <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+                    <thead>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                            <th style="padding:8px 10px;text-align:left;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.35);font-weight:600">Room</th>
+                            <th style="padding:8px 10px;text-align:left">Status</th>
+                            <th class="hide-mobile" style="padding:8px 10px">Songs</th>
+                            <th class="hide-mobile" style="padding:8px 10px">Pending</th>
+                            <th class="hide-mobile" style="padding:8px 10px">Created</th>
+                            <th style="padding:8px 10px;width:60px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomsBody"></tbody>
+                </table>
+            </div>
+            <div id="pagination" class="flex-between" style="margin-top:var(--space-sm)"></div>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal glass-card" style="padding:var(--space-xl);text-align:center">
+            <div id="confirmModalIcon" style="font-size:2.5rem;margin-bottom:var(--space-md)"></div>
+            <h3 id="confirmModalTitle" class="heading-md" style="margin-bottom:var(--space-sm)"></h3>
+            <p id="confirmModalMessage" class="text-muted" style="margin-bottom:var(--space-xl)"></p>
+            <div class="flex gap-md" style="justify-content:center">
+                <button class="btn btn-ghost" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmModalAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <script src="../assets/js/admin.js"></script>
+    <script>
+        let currentFilter = 'all', currentPage = 1, perPage = 10;
+
+        function loadRooms() {
+            api('/api/admin_rooms?filter=' + currentFilter + '&page=' + currentPage + '&per_page=' + perPage).then(data => {
+                if (!data.success) return;
+                const tbody = document.getElementById('roomsBody');
+                if (data.rooms.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:var(--space-2xl);text-align:center;color:rgba(255,255,255,0.3)">No rooms found</td></tr>';
+                } else {
+                    tbody.innerHTML = data.rooms.map(r => {
+                        const date = new Date(r.created_at + 'Z').toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        const sColor = r.status === 'active' ? 'rgba(39,174,96,0.2)' : 'rgba(255,255,255,0.08)';
+                        const sText = r.status === 'active' ? '#27AE60' : 'rgba(255,255,255,0.4)';
+                        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                            <td style="padding:6px 10px"><span style="font-weight:600;letter-spacing:0.08em;color:var(--gold);font-size:0.85rem">${r.room_code}</span></td>
+                            <td style="padding:6px 10px"><span style="font-size:0.68rem;padding:2px 8px;border-radius:var(--radius-full);background:${sColor};color:${sText};font-weight:500">${r.status}</span></td>
+                            <td class="hide-mobile" style="padding:6px 10px;font-size:0.8rem;color:rgba(255,255,255,0.5)">${r.song_count}</td>
+                            <td class="hide-mobile" style="padding:6px 10px;font-size:0.8rem;color:rgba(255,255,255,0.5)">${r.pending_count}</td>
+                            <td class="hide-mobile" style="padding:6px 10px;font-size:0.75rem;color:rgba(255,255,255,0.3)">${date}</td>
+                            <td style="padding:6px 10px">
+                                <div class="flex gap-xs" style="justify-content:flex-end">
+                                    ${r.status === 'active' ? '<button class="btn btn-warn btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="closeRoom(' + r.id + ', \'' + r.room_code + '\')">Close</button>' : ''}
+                                    <button class="btn btn-danger btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="deleteRoom(' + r.id + ', \'' + r.room_code + '\')">Delete</button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                document.getElementById('pagination').innerHTML = `<span style="font-size:0.72rem;color:rgba(255,255,255,0.35)">${data.total_rows} rooms</span>` +
+                    (data.total_pages > 1 ? `<div class="flex gap-xs">${data.page > 1 ? '<button class="btn-icon-only" onclick="goPage(' + (data.page - 1) + ')">‹</button>' : ''}<span style="font-size:0.72rem;color:rgba(255,255,255,0.35)">Page ${data.page} of ${data.total_pages}</span>${data.page < data.total_pages ? '<button class="btn-icon-only" onclick="goPage(' + (data.page + 1) + ')">›</button>' : ''}</div>` : '');
+            });
+        }
+
+        function goPage(p) { currentPage = p; loadRooms(); }
+
+        document.querySelectorAll('#filterBtns button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentFilter = this.dataset.filter;
+                currentPage = 1;
+                document.querySelectorAll('#filterBtns button').forEach(b => b.className = 'btn btn-ghost btn-sm');
+                this.className = 'btn btn-primary btn-sm';
+                loadRooms();
+            });
+        });
+
+        async function closeRoom(id, code) {
+            showConfirmModal('🔒', 'Close Room "' + code + '"?', 'The room will be closed.', async function() {
+                const data = await api('/api/admin_close_room', { method: 'POST', body: JSON.stringify({ room_id: id }) });
+                if (data.success) { showToast('Room closed', 'success'); loadRooms(); }
+                else { showToast(data.error || 'Failed', 'error'); }
+            });
+        }
+
+        async function deleteRoom(id, code) {
+            showConfirmModal('🗑️', 'Delete Room "' + code + '"?', 'This cannot be undone.', async function() {
+                const data = await api('/api/admin_delete_room', { method: 'POST', body: JSON.stringify({ room_ids: [id] }) });
+                if (data.success) { showToast('Room deleted', 'success'); loadRooms(); }
+                else { showToast(data.error || 'Failed', 'error'); }
+            });
+        }
+
+        renderSidebar();
+        loadRooms();
+    </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — KTV LOUNGE</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-card glass-card animate-slide">
+            <a href="/" class="site-logo" style="display:block;text-align:center;margin-bottom:var(--space-2xl)">KTV LOUNGE</a>
+            <h2 class="heading-md text-center mb-4">Admin Access</h2>
+            <div id="errorMsg" style="display:none;padding:var(--space-md);background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:var(--radius-md);margin-bottom:var(--space-lg);color:var(--danger);font-size:0.9rem;text-align:center"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="username" class="form-input" placeholder="Enter username" required autofocus autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+            </form>
+            <p class="text-center text-muted text-small mt-4"><a href="/">← Back to KTV LOUNGE</a></p>
+        </div>
+    </div>
+    <script>
+        if (localStorage.getItem('admin_token')) window.location.href = '/admin/';
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true; btn.textContent = 'Signing in...';
+            const errDiv = document.getElementById('errorMsg');
+            try {
+                const res = await fetch('/api/admin_login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('admin_token', data.token);
+                    localStorage.setItem('admin_user', JSON.stringify(data.user));
+                    window.location.href = '/admin/';
+                } else {
+                    errDiv.style.display = 'block';
+                    errDiv.textContent = data.error || 'Invalid credentials';
+                    btn.disabled = false; btn.textContent = 'Sign In';
+                }
+            } catch(e) {
+                errDiv.style.display = 'block';
+                errDiv.textContent = 'Connection error';
+                btn.disabled = false; btn.textContent = 'Sign In';
+            }
+        });
+    </script>
+</body>
+</html>

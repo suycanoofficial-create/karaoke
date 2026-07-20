@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist — Admin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <main class="admin-content">
+            <div class="admin-page-header flex-between">
+                <div><h1 class="heading-lg">Playlist Profiles</h1></div>
+                <div class="flex gap-sm">
+                    <input type="text" id="newProfileName" placeholder="New profile name..." style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);padding:6px 12px;border-radius:var(--radius-sm);font-size:0.8rem;outline:none;font-family:var(--font-body)">
+                    <button class="btn btn-primary btn-sm" onclick="createProfile()">Create</button>
+                </div>
+            </div>
+            <div id="profilesList"></div>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="../assets/js/admin.js"></script>
+    <script>
+        let selectedProfileId = null;
+
+        async function loadProfiles() {
+            const data = await api('/api/playlist', { method: 'POST', body: { action: 'get_profiles' } });
+            if (!data.success) return;
+            const container = document.getElementById('profilesList');
+            if (data.profiles.length === 0) {
+                container.innerHTML = '<div class="glass-card" style="padding:var(--space-xl);text-align:center;color:rgba(255,255,255,0.3)">No profiles yet. Create one above.</div>';
+                return;
+            }
+            container.innerHTML = data.profiles.map(p => `
+                <div class="glass-card" style="padding:var(--space-md);margin-bottom:var(--space-sm);cursor:pointer" onclick="selectProfile(${p.id}, '${p.name}')">
+                    <div class="flex-between" style="align-items:center">
+                        <div><strong>${p.name}</strong> <span class="text-muted text-small">(${p.song_count} songs)</span></div>
+                        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteProfile(${p.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createProfile() {
+            const name = document.getElementById('newProfileName').value.trim();
+            if (!name) { showToast('Enter a profile name', 'error'); return; }
+            const data = await api('/api/playlist', { method: 'POST', body: { action: 'create_profile', name } });
+            if (data.success) { showToast('Profile created', 'success'); document.getElementById('newProfileName').value = ''; loadProfiles(); }
+            else { showToast(data.error || 'Failed', 'error'); }
+        }
+
+        async function deleteProfile(id) {
+            showConfirmModal('🗑️', 'Delete Profile?', 'All songs in this profile will be deleted.', async function() {
+                const data = await api('/api/playlist', { method: 'POST', body: { action: 'delete_profile', profile_id: id } });
+                if (data.success) { showToast('Profile deleted', 'success'); loadProfiles(); }
+                else { showToast(data.error || 'Failed', 'error'); }
+            });
+        }
+
+        function selectProfile(id, name) {
+            selectedProfileId = id;
+            const container = document.getElementById('profilesList');
+            container.innerHTML = `<div class="flex-between" style="margin-bottom:var(--space-md)"><a href="#" onclick="loadProfiles();return false" class="text-muted text-small">← Back to profiles</a><h3>${name}</h3></div><div id="songsList"></div>`;
+            loadSongs();
+        }
+
+        async function loadSongs() {
+            if (!selectedProfileId) return;
+            const data = await api('/api/playlist', { method: 'POST', body: { action: 'get_songs', profile_id: selectedProfileId } });
+            const container = document.getElementById('songsList');
+            if (!data.success || data.songs.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.3);padding:var(--space-xl)">No songs in this profile</div>';
+                return;
+            }
+            container.innerHTML = '<table style="width:100%;font-size:0.8rem"><thead><tr><th style="text-align:left;padding:8px">Song</th><th class="hide-mobile" style="text-align:left;padding:8px">YouTube ID</th><th style="padding:8px"></th></tr></thead><tbody>' +
+                data.songs.map(s => `<tr><td style="padding:6px 8px">${s.video_title}</td><td class="hide-mobile" style="padding:6px 8px;color:rgba(255,255,255,0.4)">${s.youtube_id}</td><td style="padding:6px 8px"><button class="btn btn-danger btn-sm" onclick="deleteSong(${s.id})">Delete</button></td></tr>`).join('') +
+                '</tbody></table>';
+        }
+
+        async function deleteSong(id) {
+            const data = await api('/api/playlist', { method: 'POST', body: { action: 'delete', id } });
+            if (data.success) { showToast('Song deleted', 'success'); loadSongs(); }
+            else { showToast(data.error || 'Failed', 'error'); }
+        }
+
+        renderSidebar();
+        loadProfiles();
+    </script>
+</body>
+</html>

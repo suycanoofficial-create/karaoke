@@ -1,0 +1,15 @@
+# KTV LOUNGE - Apache Configuration
+RewriteEngine On
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Deny access to sensitive directories
+RewriteRule ^(config|sql)/ - [F,L]

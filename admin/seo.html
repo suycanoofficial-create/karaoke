@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO & Meta — Admin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <main class="admin-content">
+            <div class="admin-page-header">
+                <h1 class="heading-lg">SEO & Meta</h1>
+                <p class="text-muted mt-1">Configure search engine optimization and social sharing</p>
+            </div>
+            <div id="successMsg" style="display:none;padding:var(--space-md);background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);border-radius:var(--radius-md);margin-bottom:var(--space-lg);color:var(--success)"></div>
+            <form id="seoForm">
+                <div class="glass-card" style="padding:var(--space-md)">
+                    <div class="form-group"><label class="form-label">Meta Title</label><input type="text" name="meta_title" class="form-input" id="meta_title"></div>
+                    <div class="form-group"><label class="form-label">Meta Description</label><textarea name="meta_description" class="form-input" id="meta_description" rows="3"></textarea></div>
+                    <div class="form-group"><label class="form-label">OG Title</label><input type="text" name="og_title" class="form-input" id="og_title"></div>
+                    <div class="form-group"><label class="form-label">OG Description</label><textarea name="og_description" class="form-input" id="og_description" rows="2"></textarea></div>
+                    <div class="form-group"><label class="form-label">OG Image URL</label><input type="url" name="og_image" class="form-input" id="og_image" placeholder="https://..."></div>
+                    <div class="form-group"><label class="form-label">Schema Markup (JSON-LD)</label><textarea name="schema_markup" class="form-input" id="schema_markup" rows="6" style="font-family:monospace;font-size:0.75rem"></textarea></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:var(--space-lg)">Save SEO Settings</button>
+            </form>
+        </main>
+    </div>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="../assets/js/admin.js"></script>
+    <script>
+        async function loadSeoSettings() {
+            const data = await api('/api/admin_settings');
+            if (!data.success || !data.settings) return;
+            ['meta_title', 'meta_description', 'og_title', 'og_description', 'og_image', 'schema_markup'].forEach(k => {
+                const el = document.getElementById(k);
+                if (el) el.value = data.settings[k] || '';
+            });
+        }
+
+        document.getElementById('seoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true; btn.textContent = 'Saving...';
+            const formData = new FormData(this);
+            const data = {};
+            formData.forEach((v, k) => { data[k] = v; });
+            const result = await api('/api/admin_settings', { method: 'POST', body: data });
+            if (result.success) { document.getElementById('successMsg').style.display = 'block'; document.getElementById('successMsg').textContent = 'SEO settings updated'; }
+            btn.disabled = false; btn.textContent = 'Save SEO Settings';
+        });
+
+        renderSidebar();
+        loadSeoSettings();
+    </script>
+</body>
+</html>

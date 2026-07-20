@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About — KTV LOUNGE</title>
+    <meta name="description" content="About KTV LOUNGE - Premium synchronized karaoke experience.">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+    <script src="assets/js/app.js" defer></script>
+    <script>
+        fetch('/api/settings')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.settings) {
+                    document.title = 'About — ' + (data.settings.site_name || 'KTV LOUNGE');
+                }
+            })
+            .catch(() => {});
+    </script>
+</head>
+<body>
+    <header class="site-header" id="siteHeader">
+        <div class="container">
+            <div class="site-header-inner">
+                <a href="/" class="site-logo">KTV LOUNGE</a>
+                <nav class="site-nav" id="siteNav">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/about.html" class="nav-link active">About</a>
+                    <a href="/admin/" class="nav-link nav-link-highlight">Admin</a>
+                </nav>
+                <button class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main style="padding:var(--space-3xl) var(--space-md);max-width:800px;margin:0 auto">
+        <h1 class="heading-xl text-center" style="margin-bottom:var(--space-lg)">About <span class="text-gold">KTV LOUNGE</span></h1>
+        <p class="text-muted text-center" style="font-size:1.1rem;max-width:600px;margin:0 auto var(--space-2xl)">An elite, app-free synchronized karaoke lounge. Elevate your night with seamless karaoke, tailored for the connoisseur.</p>
+
+        <div class="glass-card" style="padding:var(--space-xl);margin-bottom:var(--space-lg)">
+            <h2 class="heading-md" style="margin-bottom:var(--space-md)">How It Works</h2>
+            <div style="display:grid;gap:var(--space-lg)">
+                <div class="flex gap-md" style="align-items:flex-start">
+                    <div style="width:40px;height:40px;border-radius:50%;background:rgba(212,175,55,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;flex-shrink:0">1</div>
+                    <div><strong>Host creates a room</strong><br><span class="text-muted text-small">Click "Create Room" on the host device connected to speakers/TV</span></div>
+                </div>
+                <div class="flex gap-md" style="align-items:flex-start">
+                    <div style="width:40px;height:40px;border-radius:50%;background:rgba(212,175,55,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;flex-shrink:0">2</div>
+                    <div><strong>Guests join from their phones</strong><br><span class="text-muted text-small">Enter the room code shown on screen — no app download required</span></div>
+                </div>
+                <div class="flex gap-md" style="align-items:flex-start">
+                    <div style="width:40px;height:40px;border-radius:50%;background:rgba(212,175,55,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;flex-shrink:0">3</div>
+                    <div><strong>Search and queue songs</strong><br><span class="text-muted text-small">Guests search YouTube and add songs to the queue</span></div>
+                </div>
+                <div class="flex gap-md" style="align-items:flex-start">
+                    <div style="width:40px;height:40px;border-radius:50%;background:rgba(212,175,55,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;flex-shrink:0">4</div>
+                    <div><strong>Sing along!</strong><br><span class="text-muted text-small">Karaoke videos play on the main screen with synchronized lyrics. Guests can cheer and react!</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding:var(--space-xl);text-align:center">
+            <h2 class="heading-md" style="margin-bottom:var(--space-md)">Features</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);text-align:left;font-size:0.9rem">
+                <div>✓ App-free guest experience</div>
+                <div>✓ YouTube karaoke library</div>
+                <div>✓ Real-time synchronized playback</div>
+                <div>✓ Guest cheers & reactions</div>
+                <div>✓ Scoring system</div>
+                <div>✓ Queue management</div>
+                <div>✓ Audio relay for remote singers</div>
+                <div>✓ Echo & effects control</div>
+                <div>✓ Playlist profiles</div>
+                <div>✓ Room lock & guest control</div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+</body>
+</html>

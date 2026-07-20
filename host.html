@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host — KTV LOUNGE</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+    <header class="site-header" id="siteHeader">
+        <div class="container">
+            <div class="site-header-inner">
+                <a href="/" class="site-logo">KTV LOUNGE</a>
+                <nav class="site-nav" id="siteNav">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/about.html" class="nav-link">About</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main style="padding:var(--space-lg);max-width:1400px;margin:0 auto">
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:var(--space-lg)">
+            <!-- Left: YouTube Player + Queue -->
+            <div>
+                <div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-lg)">
+                    <div id="player-container" style="position:relative;width:100%;padding-top:56.25%;background:#000">
+                        <div id="player" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
+                        <div id="noVideo" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.3);font-size:1.2rem;flex-direction:column;gap:var(--space-md)">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span>Queue a song to start</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="glass-card" style="padding:var(--space-md);margin-bottom:var(--space-lg)">
+                    <div class="flex gap-sm" style="flex-wrap:wrap">
+                        <button class="btn btn-primary btn-sm" onclick="playNext()">▶ Play</button>
+                        <button class="btn btn-ghost btn-sm" onclick="skipTrack()">⏭ Skip</button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearQueue()">✕ Clear</button>
+                        <button class="btn btn-danger btn-sm" onclick="closeRoom()">🔒 Close Room</button>
+                        <button class="btn btn-ghost btn-sm" id="lockBtn" onclick="toggleLock()">🔓 Lock</button>
+                    </div>
+                </div>
+
+                <!-- Queue -->
+                <div class="glass-card" style="padding:var(--space-md)">
+                    <div class="flex-between" style="margin-bottom:var(--space-sm)">
+                        <h3 class="heading-sm">Queue</h3>
+                        <span id="queueCount" class="text-muted text-small">0 songs</span>
+                    </div>
+                    <div id="queueList" style="min-height:100px">
+                        <div class="text-muted text-center" style="padding:var(--space-xl)">No songs in queue</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Room Info + Controls -->
+            <div>
+                <div class="glass-card" style="padding:var(--space-md);text-align:center;margin-bottom:var(--space-lg)">
+                    <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;color:rgba(255,255,255,0.3);margin-bottom:var(--space-sm)">Room Code</div>
+                    <div id="roomCodeDisplay" style="font-size:2.5rem;font-weight:700;letter-spacing:0.15em;color:var(--gold);font-family:var(--font-display)">------</div>
+                    <div id="qrContainer" style="margin:var(--space-md) auto;width:200px;height:200px;background:rgba(255,255,255,0.05);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center"></div>
+                    <div id="guestCount" class="text-muted text-small">0 guests</div>
+                </div>
+
+                <div class="glass-card" style="padding:var(--space-md);margin-bottom:var(--space-lg)">
+                    <h4 class="heading-xs" style="margin-bottom:var(--space-sm)">Echo Settings</h4>
+                    <div style="display:grid;gap:var(--space-sm)">
+                        <div><label class="form-label" style="font-size:0.75rem">Delay</label><input type="range" id="echoDelay" min="0" max="1" step="0.01" value="0.35" onchange="updateEcho()" style="width:100%"></div>
+                        <div><label class="form-label" style="font-size:0.75rem">Feedback</label><input type="range" id="echoFeedback" min="0" max="1" step="0.01" value="0.35" onchange="updateEcho()" style="width:100%"></div>
+                        <div><label class="form-label" style="font-size:0.75rem">Mix</label><input type="range" id="echoMix" min="0" max="1" step="0.01" value="0.35" onchange="updateEcho()" style="width:100%"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card" style="padding:var(--space-md)">
+                    <h4 class="heading-xs" style="margin-bottom:var(--space-sm)">Now Playing</h4>
+                    <div id="nowPlaying">
+                        <div class="text-muted text-small">No track playing</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const ROOM_CODE = params.get('code');
+        const TOKEN = params.get('token');
+        let ROOM_ID = null;
+        let player = null;
+        let currentTrackId = null;
+        let pollInterval = null;
+
+        if (!ROOM_CODE || !TOKEN) { window.location.href = '/'; }
+
+        function showToast(msg, type) {
+            var c = document.getElementById('toastContainer');
+            if (!c) return;
+            var t = document.createElement('div');
+            t.className = 'toast toast-' + (type || 'info');
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 3000);
+        }
+
+        async function api(path, opts = {}) {
+            opts.headers = { ...opts.headers, 'Content-Type': 'application/json' };
+            const res = await fetch(path, opts);
+            return res.json();
+        }
+
+        async function init() {
+            const data = await api('/api/room_status?code=' + ROOM_CODE);
+            if (!data.success || !data.room) { showToast('Room not found', 'error'); return; }
+            ROOM_ID = data.room.id;
+            document.getElementById('roomCodeDisplay').textContent = ROOM_CODE;
+
+            const roomUrl = window.location.origin + '/guest.html?code=' + ROOM_CODE;
+            const qrContainer = document.getElementById('qrContainer');
+            if (typeof QRCode !== 'undefined') {
+                new QRCode(qrContainer, { text: roomUrl, width: 180, height: 180 });
+            } else {
+                qrContainer.innerHTML = '<span class="text-muted text-small">QR: ' + roomUrl + '</span>';
+            }
+
+            if (data.room.echo_delay !== undefined) {
+                document.getElementById('echoDelay').value = data.room.echo_delay;
+                document.getElementById('echoFeedback').value = data.room.echo_feedback;
+                document.getElementById('echoMix').value = data.room.echo_mix;
+            }
+
+            updateLockBtn(data.room.locked);
+            pollQueue();
+            pollInterval = setInterval(pollQueue, 3000);
+            pollGuestCount();
+            setInterval(pollGuestCount, 5000);
+        }
+
+        function pollQueue() {
+            if (!ROOM_ID) return;
+            api('/api/get_queue?room_id=' + ROOM_ID + '&token=' + TOKEN + '&completed=1').then(data => {
+                if (!data.success) return;
+                renderQueue(data.tracks);
+                updateNowPlaying(data.tracks);
+                document.getElementById('queueCount').textContent = data.count + ' song' + (data.count !== 1 ? 's' : '');
+            });
+        }
+
+        function renderQueue(tracks) {
+            const container = document.getElementById('queueList');
+            const pending = tracks.filter(t => t.status === 'pending');
+            if (pending.length === 0 && tracks.filter(t => t.status === 'playing').length === 0) {
+                container.innerHTML = '<div class="text-muted text-center" style="padding:var(--space-xl)">No songs in queue</div>';
+                return;
+            }
+            container.innerHTML = tracks.map(t => {
+                const isPlaying = t.status === 'playing';
+                const elapsed = isPlaying && t.elapsed ? formatTime(t.elapsed) : '';
+                return `<div class="queue-item" style="display:flex;align-items:center;gap:var(--space-sm);padding:var(--space-sm);border-radius:var(--radius-md);margin-bottom:var(--space-xs);background:${isPlaying ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)'}">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.video_title}</div>
+                        <div class="text-muted text-small">${t.added_by}${elapsed ? ' · ' + elapsed : ''}</div>
+                    </div>
+                    <div class="flex gap-xs">
+                        ${isPlaying ? '<span style="color:var(--gold);font-size:0.7rem">▶ PLAYING</span>' :
+                            `<button class="btn btn-primary btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="playTrack(${t.id})">Play</button>
+                             <button class="btn btn-danger btn-sm" style="font-size:0.7rem;padding:2px 8px" onclick="removeTrack(${t.id})">✕</button>`}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updateNowPlaying(tracks) {
+            const playing = tracks.find(t => t.status === 'playing');
+            const container = document.getElementById('nowPlaying');
+            if (playing) {
+                const elapsed = playing.elapsed ? formatTime(playing.elapsed) : '0:00';
+                container.innerHTML = `<div style="font-weight:500;font-size:0.9rem">${playing.video_title}</div>
+                    <div class="text-muted text-small">${playing.added_by} · ${elapsed}</div>
+                    ${playing.score ? `<div style="margin-top:var(--space-xs)"><span style="color:var(--gold)">★ ${playing.score}</span></div>` : ''}`;
+                if (playing.youtube_id && (!currentTrackId || currentTrackId !== playing.id)) {
+                    loadYouTubeVideo(playing.youtube_id, playing.id);
+                }
+            } else {
+                container.innerHTML = '<div class="text-muted text-small">No track playing</div>';
+            }
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function loadYouTubeVideo(videoId, trackId) {
+            currentTrackId = trackId;
+            document.getElementById('noVideo').style.display = 'none';
+            if (typeof YT !== 'undefined' && YT.Player) {
+                if (player) player.destroy();
+                player = new YT.Player('player', {
+                    videoId: videoId,
+                    playerVars: { autoplay: 1, controls: 1, modestbranding: 1, rel: 0 },
+                    events: {
+                        onStateChange: function(e) {
+                            if (e.data === YT.PlayerState.ENDED) {
+                                api('/api/update_playback', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ action: 'complete', room_id: ROOM_ID, token: TOKEN, track_id: trackId })
+                                });
+                                currentTrackId = null;
+                            }
+                        }
+                    }
+                });
+            } else {
+                document.getElementById('player').innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            }
+        }
+
+        function playTrack(id) {
+            api('/api/update_playback', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'play', room_id: ROOM_ID, token: TOKEN, track_id: id })
+            }).then(data => { if (data.success) pollQueue(); });
+        }
+
+        function playNext() {
+            api('/api/get_queue?room_id=' + ROOM_ID + '&token=' + TOKEN).then(data => {
+                if (data.success && data.tracks.length > 0) {
+                    const next = data.tracks.find(t => t.status === 'pending');
+                    if (next) playTrack(next.id);
+                }
+            });
+        }
+
+        function skipTrack() {
+            const playing = document.querySelector('.queue-item[style*="rgba(212,175,55"]');
+            if (currentTrackId) {
+                api('/api/update_playback', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'skip', room_id: ROOM_ID, token: TOKEN, track_id: currentTrackId })
+                }).then(data => { if (data.success) { pollQueue(); if (data.next_id) loadYouTubeVideo(data.next_id); } });
+            }
+        }
+
+        function removeTrack(id) {
+            api('/api/remove_from_queue', {
+                method: 'POST',
+                body: JSON.stringify({ track_id: id, room_code: ROOM_CODE })
+            }).then(data => { if (data.success) pollQueue(); });
+        }
+
+        function clearQueue() {
+            api('/api/update_playback', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'clear', room_id: ROOM_ID, token: TOKEN })
+            }).then(data => { if (data.success) pollQueue(); });
+        }
+
+        function closeRoom() {
+            if (confirm('Close this room?')) {
+                api('/api/update_playback', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'close', room_id: ROOM_ID, token: TOKEN })
+                }).then(data => { if (data.success) window.location.href = '/'; });
+            }
+        }
+
+        async function toggleLock() {
+            const data = await api('/api/toggle_lock', {
+                method: 'POST',
+                body: JSON.stringify({ room_id: ROOM_ID, token: TOKEN })
+            });
+            if (data.success) updateLockBtn(data.locked);
+        }
+
+        function updateLockBtn(locked) {
+            const btn = document.getElementById('lockBtn');
+            btn.innerHTML = locked ? '🔒 Locked' : '🔓 Lock';
+            btn.className = locked ? 'btn btn-warning btn-sm' : 'btn btn-ghost btn-sm';
+        }
+
+        async function updateEcho() {
+            const data = await api('/api/echo_settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    room_id: ROOM_ID,
+                    token: TOKEN,
+                    echo_delay: parseFloat(document.getElementById('echoDelay').value),
+                    echo_feedback: parseFloat(document.getElementById('echoFeedback').value),
+                    echo_mix: parseFloat(document.getElementById('echoMix').value)
+                })
+            });
+        }
+
+        function pollGuestCount() {
+            if (!ROOM_ID) return;
+            api('/api/get_guest_count?room_id=' + ROOM_ID + '&token=' + TOKEN).then(data => {
+                if (data.success) document.getElementById('guestCount').textContent = data.count + ' guest' + (data.count !== 1 ? 's' : '');
+            });
+        }
+
+        // Load YouTube IFrame API
+        var tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        var ytReady = false;
+        function onYouTubeIframeAPIReady() { ytReady = true; }
+
+        init();
+    </script>
+</body>
+</html>
